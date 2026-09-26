@@ -44,7 +44,7 @@ android.api = 33
 android.minapi = 21
 
 # (str) Android NDK version to use
-android.ndk = 25b
+android.ndk = 28c
 
 # (str) python-for-android branch to use.
 # "develop" fixes wheel-build incompatibilities that occur on the
