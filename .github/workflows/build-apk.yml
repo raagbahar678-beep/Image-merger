@@ -38,18 +38,14 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y git zip unzip python3-pip python3-venv autoconf libtool pkg-config zlib1g-dev libncurses-dev cmake libffi-dev libssl-dev build-essential
-          # --system-site-packages is intentionally NOT used here: it lets
-          # p4a's own nested `python -m venv venv` (created later, from
-          # inside this venv's interpreter, for the per-arch build) see the
-          # system Python's site-packages too. That can mix files from two
-          # different pip versions into that nested venv, so its later
-          # `pip install -U pip` self-upgrades into an inconsistent state
-          # (e.g. ImportError: cannot import name 'open_rich_spinner' from
-          # 'pip._internal.cli.spinners', or 'BuildDependencyInstallError'
-          # from 'pip._internal.exceptions'). Everything this workflow
-          # needs (buildozer, cython) is installed directly below, so
-          # system-site-packages isn't needed anyway.
-          python3 -m venv .venv
+          # --system-site-packages IS required: buildozer installs its own
+          # p4a build dependencies with `pip install --user` (kept out of
+          # the project venv deliberately), and pip only allows --user
+          # installs inside a venv when it can see the system site-packages.
+          # Without this flag buildozer fails immediately with:
+          #   ERROR: Can not perform a '--user' install. User site-packages
+          #   are not visible in this virtualenv.
+          python3 -m venv --system-site-packages .venv
           .venv/bin/pip install --upgrade pip setuptools
           .venv/bin/pip install buildozer cython
 
@@ -69,6 +65,20 @@ jobs:
         run: |
           export JAVA_HOME="$JAVA_HOME_17_X64"
           export PATH="$JAVA_HOME/bin:$PWD/.venv/bin:$PATH"
+          # Pin the pip version p4a's own internal `pip install -U pip`
+          # (run inside its freshly-created per-arch build venv) is allowed
+          # to upgrade to. Without this it grabs whatever is currently
+          # latest on PyPI, and that self-upgrade has been landing in an
+          # inconsistent state - e.g.:
+          #   ImportError: cannot import name 'open_rich_spinner' from
+          #   'pip._internal.cli.spinners'
+          #   ImportError: cannot import name 'BuildDependencyInstallError'
+          #   from 'pip._internal.exceptions'
+          # PIP_CONSTRAINT applies to every pip invocation in the
+          # environment, so this covers that nested call even though we
+          # don't control its command line directly.
+          echo "pip==24.3.1" > /tmp/pip-constraint.txt
+          export PIP_CONSTRAINT=/tmp/pip-constraint.txt
           python3 --version
           java -version
           set -o pipefail
