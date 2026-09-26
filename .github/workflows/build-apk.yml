@@ -45,7 +45,7 @@ jobs:
           export PATH="$JAVA_HOME/bin:$PWD/.venv/bin:$PATH"
           java -version
           set -o pipefail
-          .venv/bin/buildozer -v android debug 2>&1 | tee build.log
+          (yes || true) | .venv/bin/buildozer -v android debug 2>&1 | tee build.log
 
       - name: Save build log
         if: always()
