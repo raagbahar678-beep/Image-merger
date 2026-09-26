@@ -45,7 +45,20 @@ jobs:
           export PATH="$JAVA_HOME/bin:$PWD/.venv/bin:$PATH"
           java -version
           set -o pipefail
-          (yes || true) | .venv/bin/buildozer -v android debug 2>&1 | tee build.log
+          # Remove any stale per-arch build/venv left behind by a previous
+          # failed run. p4a (as of the 2026.05.09 release) creates this venv
+          # with `python -m venv venv` (no --clear) and then runs
+          # `pip install -U pip` inside it; if a broken/partial venv survives
+          # from an earlier failed build (restored here via the cache step
+          # above), the upgrade can leave pip's own internals inconsistent,
+          # causing errors like "cannot import name 'BuildDependencyInstallError'
+          # from 'pip._internal.exceptions'" on every subsequent run even
+          # though the underlying build itself is fine. Deleting it forces a
+          # clean venv each time; this is cheap since venv creation is fast
+          # relative to the rest of the build. See:
+          # https://github.com/kivy/python-for-android/issues/3339
+          find .buildozer -maxdepth 6 -type d -path '*/build/venv' -exec rm -rf {} + 2>/dev/null || true
+          .venv/bin/buildozer -v android debug 2>&1 | tee build.log
 
       - name: Save build log
         if: always()
@@ -61,3 +74,4 @@ jobs:
           name: MyKivyApp-APK
           path: bin/*.apk
           if-no-files-found: error
+
