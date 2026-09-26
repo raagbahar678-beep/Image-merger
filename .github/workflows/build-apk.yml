@@ -19,6 +19,21 @@ jobs:
           distribution: temurin
           java-version: '17'
 
+      # p4a's own internal build venv (.buildozer/.../build/venv) is created
+      # with whatever `python3` is first on PATH. On this runner that now
+      # resolves to Python 3.14, and p4a's `pip install -U pip` bootstrap
+      # inside that fresh venv breaks under 3.14 with:
+      #   ImportError: cannot import name 'BuildDependencyInstallError'
+      #   from 'pip._internal.exceptions'
+      # (a pip self-upgrade / entry-point mismatch — distinct from the
+      # stale-venv issue #3339 already worked around below). Pin to 3.11,
+      # which p4a/buildozer are known to work with, so both the outer
+      # .venv and p4a's inner venv use it.
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
       - name: Install build tools
         run: |
           sudo apt-get update
@@ -43,6 +58,7 @@ jobs:
         run: |
           export JAVA_HOME="$JAVA_HOME_17_X64"
           export PATH="$JAVA_HOME/bin:$PWD/.venv/bin:$PATH"
+          python3 --version
           java -version
           set -o pipefail
           # Remove any stale per-arch build/venv left behind by a previous
